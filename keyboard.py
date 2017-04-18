@@ -7,6 +7,7 @@ import dbus
 import dbus.service
 import gobject
 from dbus.mainloop.glib import DBusGMainLoop
+from client import Keyboard
 
 PROFILE = "org.bluez.Profile1"
 ADDRESS = "B8:27:EB:EC:E9:95"
@@ -111,12 +112,10 @@ class SimulatedKeyboardDevice:
 class KeyboardService(dbus.service.Object):
 
   def __init__(self):
-    bus_name = dbus.service.BusName("xyz.olly.simkeyboard", bus=dbus.SystemBus())
-    dbus.service.Object.__init__(self, bus_name, "/xyz/olly/simkeyboard")
+    self.keyboard = Keyboard(self)
     self.device = SimulatedKeyboardDevice()
     self.device.listen()
 
-  @dbus.service.method("xyz.olly.simkeyboard", in_signature="yay")
   def send_keys(self, modifier, keys):
     cmd_str = ""
     cmd_str += chr(0xa1)

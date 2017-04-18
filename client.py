@@ -1,14 +1,12 @@
-#!/usr/bin/env python
-
-import dbus
 import evdev
+import gobject
 from select import select
 import time
 import keymap
 
 class Keyboard():
 
-  def __init__(self):
+  def __init__(self, service):
     # Eight modifiers
     # - Right Super
     # - Right Alt
@@ -22,29 +20,25 @@ class Keyboard():
     # Up to six keys can be depressed at once.
     self.key_state = [0,0,0,0,0,0]
 
-    # Hook up DBus
-    bus = dbus.SystemBus()
-    service = bus.get_object("xyz.olly.simkeyboard", "/xyz/olly/simkeyboard")
-    self.iface = dbus.Interface(service, "xyz.olly.simkeyboard")
+    self.service = service
 
     # Get the keyboard device
     while True:
-      devices = [evdev.InputDevice(fn) for fn in evdev.list_devices()]
-      if len(devices) > 0:
-        self.devices = {dev.fd: dev for dev in devices}
+      self.devices = [evdev.InputDevice(fn) for fn in evdev.list_devices()]
+      if len(self.devices) > 0:
+        for device in self.devices:
+          gobject.io_add_watch(device.fd, gobject.IO_IN, self.read, device)
         print "Found keyboard"
         return
       print "Keyboard not found, sleeping.."
       time.sleep(3)
 
-  def event_loop(self):
-    while True:
-      r, w, x = select(self.devices, [], [])
-      for fd in r:
-        for event in self.devices[fd].read():
-          if event.type == evdev.ecodes.EV_KEY and event.value < 2:
-              self.update(event)
-              self.send_input()
+  def read(self, source, cond, device):
+    for event in device.read():
+      if event.type == evdev.ecodes.EV_KEY and event.value < 2:
+          self.update(event)
+          self.send_input()
+    return True
 
   def update(self, event):
     code = evdev.ecodes.KEY[event.code]
@@ -61,9 +55,4 @@ class Keyboard():
           self.key_state[i] = 0
 
   def send_input(self):
-    self.iface.send_keys(self.modifier_state, self.key_state)
-
-if __name__ == "__main__":
-  kb = Keyboard()
-  print "Starting event loop"
-  kb.event_loop()
+    self.service.send_keys(self.modifier_state, self.key_state)
