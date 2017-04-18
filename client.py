@@ -1,5 +1,6 @@
 import dbus
-from evdev import InputDevice, ecodes
+import evdev
+from select import select
 import time
 import keymap
 
@@ -26,22 +27,25 @@ class Keyboard():
 
     # Get the keyboard device
     while True:
-      try:
-        self.dev = InputDevice("/dev/input/event0")
+      devices = [evdev.InputDevice(fn) for fn in evdev.list_devices()]
+      if len(devices) > 0:
+        self.devices = {dev.fd: dev for dev in devices}
         print "Found keyboard"
         return
-      except OSError:
-        print "Keyboard not found, sleeping.."
-        time.sleep(3)
+      print "Keyboard not found, sleeping.."
+      time.sleep(3)
 
   def event_loop(self):
-    for event in self.dev.read_loop():
-      if event.type == ecodes.EV_KEY and event.value < 2:
-        self.update(event)
-        self.send_input()
+    while True:
+      r, w, x = select(self.devices, [], [])
+      for fd in r:
+        for event in self.devices[fd].read():
+          if event.type == evdev.ecodes.EV_KEY and event.value < 2:
+              self.update(event)
+              self.send_input()
 
   def update(self, event):
-    code = ecodes.KEY[event.code]
+    code = evdev.ecodes.KEY[event.code]
     modkey = keymap.modkey(code)
     if modkey > 0:
       self.modifier_state ^= 1 << (7 - modkey)
