@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import dbus
 import evdev
 from select import select
