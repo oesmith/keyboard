@@ -77,6 +77,8 @@ class SimulatedKeyboardDevice:
 
     self.control_socket = BluetoothSocket(L2CAP)
     self.interrupt_socket = BluetoothSocket(L2CAP)
+    self.control_socket.setblocking(0)
+    self.interrupt_socket.setblocking(0)
     self.control_socket.bind(("", CONTROL_PORT))
     self.interrupt_socket.bind(("", INTERRUPT_PORT))
 
@@ -84,13 +86,27 @@ class SimulatedKeyboardDevice:
     print "Waiting for a connection"
     self.control_socket.listen(1)
     self.interrupt_socket.listen(1)
+    self.control_channel = None
+    self.interrupt_channel = None
+    gobject.io_add_watch(
+            self.control_socket.fileno(), gobject.IO_IN, self.accept_control)
+    gobject.io_add_watch(
+            self.interrupt_socket.fileno(), gobject.IO_IN,
+            self.accept_interrupt)
+
+  def accept_control(self, source, cond):
     self.control_channel, cinfo = self.control_socket.accept()
     print "Got a connection on the control channel from " + cinfo[0]
+    return True
+
+  def accept_interrupt(self, source, cond):
     self.interrupt_channel, cinfo = self.interrupt_socket.accept()
     print "Got a connection on the interrupt channel from " + cinfo[0]
+    return True
 
   def send(self, message):
-    self.interrupt_channel.send(message)
+    if self.interrupt_channel is not None:
+      self.interrupt_channel.send(message)
 
 class KeyboardService(dbus.service.Object):
 
