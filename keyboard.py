@@ -7,6 +7,7 @@ import dbus
 import dbus.service
 import gobject
 from dbus.mainloop.glib import DBusGMainLoop
+import blinkt
 from client import Keyboard
 
 PROFILE = "org.bluez.Profile1"
@@ -115,6 +116,8 @@ class KeyboardService(dbus.service.Object):
     self.keyboard = Keyboard(self)
     self.device = SimulatedKeyboardDevice()
     self.device.listen()
+    blinkt.set_pixel(0, 0, 255, 0)
+    blinkt.show()
 
   def send_keys(self, modifier, keys):
     cmd_str = ""
@@ -135,6 +138,10 @@ if __name__ == "__main__":
   if not os.geteuid() == 0:
     sys.exit("Must run as root")
   DBusGMainLoop(set_as_default=True)
+  blinkt.set_brightness(0.05)
+  blinkt.clear()
+  blinkt.set_pixel(0, 255, 0, 0)
+  blinkt.show()
   service = KeyboardService()
   gobject.threads_init()
   mainloop = gobject.MainLoop()
